@@ -1,0 +1,7 @@
+{
+  "prompt": "我要做一个关于智能工作流产品的易拉宝，要求是Pdf给我，内容你自己编",
+  "topic": "智能工作流",
+  "width_cm": 80,
+  "height_cm": 200,
+  "artifact_dir": "artifacts/manual-worker-demo"
+}

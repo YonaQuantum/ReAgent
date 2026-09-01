@@ -1,0 +1,23 @@
+{
+  "print": {
+    "bleed_mm": 3,
+    "safe_margin_ratio": 0.03,
+    "max_pages": 1,
+    "min_image_dpi": 150,
+    "qr_min_width_mm": 100
+  },
+  "typography": {
+    "title_min_mm": 30,
+    "subtitle_min_mm": 15,
+    "body_min_mm": 12,
+    "annotation_min_mm": 10
+  },
+  "content": {
+    "max_total_chinese_chars": 140,
+    "max_sections": 4,
+    "allow_emoji": false
+  },
+  "composition": {
+    "max_boxed_modules": 2
+  }
+}

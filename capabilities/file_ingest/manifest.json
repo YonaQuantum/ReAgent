@@ -1,0 +1,34 @@
+{
+  "id": "file_ingest",
+  "name": "文件解析",
+  "description": "解析用户上传/摄取的外部文件（PDF、图片），抽取文本供后续设计使用。",
+  "match_keywords": ["pdf", "图片", "ocr", "解析", "上传", "附件", "文档", "截图"],
+  "tools": [
+    {
+      "name": "parse_pdf",
+      "description": "解析工作区里的 PDF 文件，抽取全文文本（返回页数 + 正文）。读取用户上传的 PDF（通常在 input/ 目录）时使用。",
+      "command": "python3",
+      "entry": "parse_pdf.py",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entry": { "type": "string", "description": "工作区内 PDF 的相对路径，如 input/report.pdf" }
+        },
+        "required": ["entry"]
+      }
+    },
+    {
+      "name": "parse_image",
+      "description": "对工作区里的图片做 OCR 文字识别（tesseract），抽取图中文字；若配置了视觉模型，还会把原图喂给模型理解内容与风格。",
+      "command": "python3",
+      "entry": "parse_image.py",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entry": { "type": "string", "description": "工作区内图片的相对路径，如 input/photo.png" }
+        },
+        "required": ["entry"]
+      }
+    }
+  ]
+}

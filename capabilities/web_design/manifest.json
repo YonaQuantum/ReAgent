@@ -1,0 +1,50 @@
+{
+  "id": "web_design",
+  "name": "网页设计",
+  "description": "设计并产出网页（首页 / 落地页 / 站点）。模型自由编写 HTML/CSS，工具负责在浏览器视口渲染预览、检测布局问题、导出成品。",
+  "match_keywords": ["网站", "网页", "首页", "落地页", "官网", "站点", "landing", "web", "homepage", "page", "site"],
+  "tools": [
+    {
+      "name": "render_page",
+      "description": "把工作区里的网页 HTML 渲染成浏览器视口预览图与网页诊断（横向溢出、字号可读性、图片加载、emoji）。做网站/首页/落地页时用它查看效果。",
+      "command": "python3",
+      "entry": "render.py",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entry": { "type": "string", "description": "入口 HTML 文件名，默认 index.html", "default": "index.html" },
+          "width_px": { "type": "number", "description": "视口宽度（像素），默认 1440", "default": 1440 },
+          "height_px": { "type": "number", "description": "视口高度（像素），默认 960", "default": 960 }
+        }
+      }
+    },
+    {
+      "name": "lint_page",
+      "description": "网页布局确定性检测：横向溢出、字号过小、图片缺失、出现 emoji。做网站时用它确认没问题。",
+      "command": "python3",
+      "entry": "lint.py",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entry": { "type": "string", "description": "入口 HTML 文件名，默认 index.html", "default": "index.html" },
+          "width_px": { "type": "number", "description": "视口宽度（像素），默认 1440", "default": 1440 },
+          "height_px": { "type": "number", "description": "视口高度（像素），默认 960", "default": 960 }
+        }
+      }
+    },
+    {
+      "name": "export_page",
+      "description": "导出网页：保存最终 HTML 并生成整页截图 PNG。做网站收尾时调用。",
+      "command": "python3",
+      "entry": "export.py",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entry": { "type": "string", "description": "入口 HTML 文件名，默认 index.html", "default": "index.html" },
+          "width_px": { "type": "number", "description": "视口宽度（像素），默认 1440", "default": 1440 },
+          "height_px": { "type": "number", "description": "截图视口高度（像素），默认 2400", "default": 2400 }
+        }
+      }
+    }
+  ]
+}

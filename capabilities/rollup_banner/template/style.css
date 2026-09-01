@@ -1,0 +1,168 @@
+/* Seed styles for the roll-up banner. The model may edit or replace these. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #f5f7fb;
+  font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  color: #16202a;
+}
+
+.banner {
+  position: relative;
+  width: 80cm;
+  height: 200cm;
+  overflow: hidden;
+  background:
+    linear-gradient(150deg, rgba(29, 78, 216, 0.16), rgba(20, 184, 166, 0.08) 34%, transparent 35%),
+    linear-gradient(180deg, #ffffff 0%, #eef4ff 56%, #e8fff9 100%);
+}
+
+.banner::before {
+  content: "";
+  position: absolute;
+  inset: 5.2cm 4.8cm auto auto;
+  width: 23cm;
+  height: 23cm;
+  border: 1.1cm solid rgba(20, 184, 166, 0.18);
+  transform: rotate(18deg);
+}
+
+.safe {
+  position: absolute;
+  inset: 6cm 5.5cm;
+  display: flex;
+  flex-direction: column;
+  z-index: 1;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 1.3cm;
+  font-size: 2.1cm;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.logo {
+  width: 3.1cm;
+  height: 3.1cm;
+  border-radius: 0.65cm;
+  background: #1d4ed8;
+  flex: 0 0 auto;
+  position: relative;
+}
+
+.logo::after {
+  content: "";
+  position: absolute;
+  width: 1.55cm;
+  height: 1.55cm;
+  right: -0.32cm;
+  bottom: -0.32cm;
+  background: #14b8a6;
+  border-radius: 50%;
+  border: 0.18cm solid #ffffff;
+}
+
+.hero {
+  margin-top: 13cm;
+  max-width: 58cm;
+}
+
+.eyebrow {
+  margin: 0 0 2.2cm;
+  color: #1d4ed8;
+  font-size: 1.2cm;
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0;
+  font-size: 5.15cm;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+
+.subheadline {
+  margin: 4cm 0 0;
+  max-width: 53cm;
+  font-size: 1.65cm;
+  line-height: 1.65;
+  color: #334155;
+}
+
+.features {
+  margin-top: 12cm;
+  display: grid;
+  gap: 2.6cm;
+}
+
+.feature {
+  display: grid;
+  grid-template-columns: 5.2cm 1fr;
+  gap: 1.8cm;
+  padding: 2.1cm 0;
+  border-top: 0.06cm solid rgba(15, 23, 42, 0.14);
+}
+
+.index {
+  width: 3.6cm;
+  height: 3.6cm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5cm;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 1.5cm;
+  font-weight: 700;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.8cm;
+}
+
+.feature p {
+  margin: 0.85cm 0 0;
+  font-size: 1.15cm;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.bottom {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: 1fr 11.5cm;
+  gap: 3cm;
+  align-items: end;
+  padding-top: 4.5cm;
+}
+
+.footer-line {
+  margin: 0;
+  font-size: 1.2cm;
+  line-height: 1.5;
+  color: #334155;
+  padding-left: 1cm;
+  border-left: 0.32cm solid #14b8a6;
+}
+
+.qr {
+  width: 11.5cm;
+  height: 11.5cm;
+  background:
+    linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%),
+    linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%),
+    #ffffff;
+  background-position: 0 0, 0.35cm 0.35cm;
+  background-size: 0.7cm 0.7cm;
+  border: 0.35cm solid #0f172a;
+}

@@ -1,0 +1,12 @@
+/target/
+/artifacts/*
+!/artifacts/.gitkeep
+/.deps/
+/.venv/
+/.env
+.env.local
+**/__pycache__/
+*.pyc
+node_modules/
+dist/
+.DS_Store

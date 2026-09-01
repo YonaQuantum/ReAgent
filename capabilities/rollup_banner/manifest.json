@@ -1,0 +1,50 @@
+{
+  "id": "rollup_banner",
+  "name": "易拉宝设计",
+  "description": "设计并产出可打印的易拉宝（roll-up banner / 展架 / 海报）。模型自由编写 HTML/CSS，工具负责渲染预览、检测排版问题、导出 PDF/PNG。",
+  "match_keywords": ["易拉宝", "展架", "海报", "banner", "rollup", "roll-up", "poster", "宣传", "pdf"],
+  "tools": [
+    {
+      "name": "render_banner",
+      "description": "把工作区里的 HTML 渲染成【可打印易拉宝/展架/海报】的预览图与排版诊断（出血、越界、字号、图片 DPI）。仅用于印刷品设计，不是做网页。修改文件后应再次调用以查看效果。",
+      "command": "python3",
+      "entry": "render.py",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entry": { "type": "string", "description": "入口 HTML 文件名，默认 index.html", "default": "index.html" },
+          "width_cm": { "type": "number", "description": "成品宽度（厘米）", "default": 80 },
+          "height_cm": { "type": "number", "description": "成品高度（厘米）", "default": 200 }
+        }
+      }
+    },
+    {
+      "name": "lint_banner",
+      "description": "【印刷品/易拉宝】排版确定性检测：返回是否通过以及具体问题（出血、元素越界、字号过小、图片 DPI 不足、缺失图片）。通过后即可导出 PDF。",
+      "command": "python3",
+      "entry": "lint.py",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entry": { "type": "string", "description": "入口 HTML 文件名，默认 index.html", "default": "index.html" },
+          "width_cm": { "type": "number", "description": "成品宽度（厘米）", "default": 80 },
+          "height_cm": { "type": "number", "description": "成品高度（厘米）", "default": 200 }
+        }
+      }
+    },
+    {
+      "name": "export_banner",
+      "description": "导出【易拉宝/海报】可打印 PDF（固定页面尺寸 + 出血）与高清 PNG。仅用于印刷品，做网页不要用它。应放在渲染和检测都通过之后调用。",
+      "command": "python3",
+      "entry": "export.py",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "entry": { "type": "string", "description": "入口 HTML 文件名，默认 index.html", "default": "index.html" },
+          "width_cm": { "type": "number", "description": "成品宽度（厘米）", "default": 80 },
+          "height_cm": { "type": "number", "description": "成品高度（厘米）", "default": 200 }
+        }
+      }
+    }
+  ]
+}
