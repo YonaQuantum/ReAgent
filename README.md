@@ -4,7 +4,64 @@
 
 # ReAgent
 
-ReAgent 是一个**通用 Agent Runtime**：一个很小的 Rust 内核负责跑通用的 agent loop（模型适配 + 工具注册），所有业务能力都是**数据驱动的 capability** —— 一个 `manifest.json` 声明工具、一个 `worker.py` 实现，界面是一个浏览器网页。
+ReAgent 是一个**通用 Agent Runtime**：一个很小的 Rust 内核负责跑通用的 agent loop（模型适配 + 工具注册），所有业务能力都是**数据驱动的 capability**——一个 `manifest.json` 声明工具、一个 `worker.py` 实现，界面是一个浏览器网页。
+
+## 快速开始
+
+### 系统要求
+
+- **Rust**（含 cargo）
+- **Python 3**（在 PATH 上；内核自动识别 Windows 的 `python` / 其它平台的 `python3`，可用 `REAGENT_PYTHON` 覆盖）
+- **Chrome 或 Edge**（渲染 / 导出用，自动探测常见安装位置）
+- **Node**（仅构建 WebUI 时需要）
+- 可选：`pdftotext`（poppler）与 `tesseract`，用于 `file_ingest` 的 PDF / 图片解析
+
+### 安装
+
+```bash
+git clone https://github.com/YonaQuantum/ReAgent.git
+cd ReAgent
+cargo build --release
+```
+
+### 跑通 CLI（离线，无需任何模型 key）
+
+```bash
+cargo run -p reagent-cli -- "做一个网页首页" --provider heuristic
+```
+
+产物落在 `artifacts/<run_id>/`（HTML、预览图、诊断、PDF / 截图）。
+
+### 启动 WebUI
+
+先构建一次前端（需要 Node）：
+
+```bash
+cd apps/webui && npm install && npm run build && cd ../..
+cargo run -p reagent-server   # 浏览器打开 http://localhost:8787
+```
+
+> 不构建前端也能起 server，但只会提供 API，`http://localhost:8787` 打不开界面。
+
+### 配置模型（真实使用）
+
+默认 provider 是 `deepseek`：
+
+```bash
+# Linux / macOS
+export DEEPSEEK_API_KEY=你的_key
+# Windows PowerShell
+$env:DEEPSEEK_API_KEY="你的_key"
+```
+
+其它 OpenAI 兼容模型走 `openai-compatible`，设置 `REAGENT_MODEL_BASE_URL`、`REAGENT_MODEL_API_KEY_ENV`、`REAGENT_MODEL` 三个环境变量即可（模板见 `.env.example`）。
+
+### 故障排查
+
+- `python` / `python3` 找不到 → 安装 Python 并加入 PATH，或设 `REAGENT_PYTHON` 指向解释器。
+- 找不到 Chrome → 安装 Chrome 或 Edge（内核会自动探测）。
+- WebUI 404 → 先在 `apps/webui` 里 `npm run build`。
+- 解析 PDF / 图片报错 → 装 `pdftotext`（poppler）与 `tesseract`（含中文语言包 `chi_sim`），或 `pip install pypdf`。
 
 ## 理念
 
@@ -46,13 +103,3 @@ app (CLI / server / WebUI)
 3. 重启，模型会自动看到新工具。
 
 详细架构与扩展点见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
-
-## 快速开始
-
-```bash
-# 离线演示（无需任何模型 key）
-cargo run -p reagent-cli -- "做一个网页首页" --provider heuristic
-
-# 启动服务（自带 WebUI）
-cargo run -p reagent-server   # 浏览器打开 http://localhost:8787
-```
