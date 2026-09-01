@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://picui.ogmua.cn/s1/2026/09/01/6a96d27566a61.webp"><img src="https://picui.ogmua.cn/s1/2026/09/01/6a96d27566a61.webp" alt="ReAgentLogo" /></a>
+</p>
+
 # ReAgent
 
 ReAgent 是一个**通用 Agent Runtime**：一个很小的 Rust 内核负责跑通用的 agent loop（模型适配 + 工具注册），所有业务能力都是**数据驱动的 capability** —— 一个 `manifest.json` 声明工具、一个 `worker.py` 实现，界面是一个浏览器网页。
