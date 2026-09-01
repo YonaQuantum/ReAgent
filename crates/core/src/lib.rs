@@ -15,5 +15,7 @@ pub use model::{
     ChatApiKind, HeuristicPlanner, ModelProvider, ModelResponse, OpenAiCompatibleChatProvider,
     ProviderConfig,
 };
-pub use runtime::{agent_name, build_provider, Runtime};
+pub use runtime::{
+    agent_name, build_provider, build_provider_from_settings, ModelSettings, Runtime,
+};
 pub use tool::{Tool, ToolCall, ToolRegistry, ToolResult};

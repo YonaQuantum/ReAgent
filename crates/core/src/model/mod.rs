@@ -277,6 +277,11 @@ pub struct ProviderConfig {
     pub name: String,
     pub base_url: String,
     pub api_key_env: String,
+    /// Optional explicit API key. When set (e.g. from WebUI settings stored in
+    /// the OS keychain), it takes precedence over reading `api_key_env` from the
+    /// environment. `skip_serializing` ensures a key is never written out.
+    #[serde(default, skip_serializing)]
+    pub api_key: Option<String>,
     pub model: String,
     pub api_kind: ChatApiKind,
     pub enable_thinking: bool,
@@ -293,6 +298,7 @@ impl ProviderConfig {
             name: "deepseek".to_string(),
             base_url: "https://api.deepseek.com".to_string(),
             api_key_env: "DEEPSEEK_API_KEY".to_string(),
+            api_key: None,
             model: "deepseek-v4-flash".to_string(),
             api_kind: ChatApiKind::ChatCompletions,
             enable_thinking: false,
@@ -310,6 +316,7 @@ impl ProviderConfig {
             name: name.into(),
             base_url: base_url.into(),
             api_key_env: api_key_env.into(),
+            api_key: None,
             model: model.into(),
             api_kind: ChatApiKind::ChatCompletions,
             enable_thinking: false,
@@ -403,12 +410,15 @@ impl OpenAiCompatibleChatProvider {
 #[async_trait]
 impl ModelProvider for OpenAiCompatibleChatProvider {
     async fn complete(&self, messages: &[Value], tools: &Value) -> Result<ModelResponse> {
-        let api_key = std::env::var(&self.config.api_key_env).with_context(|| {
-            format!(
-                "missing {}, set it or run with --provider heuristic",
-                self.config.api_key_env
-            )
-        })?;
+        let api_key = match &self.config.api_key {
+            Some(key) => key.clone(),
+            None => std::env::var(&self.config.api_key_env).with_context(|| {
+                format!(
+                    "missing {}, set it or run with --provider heuristic",
+                    self.config.api_key_env
+                )
+            })?,
+        };
 
         let mut body = json!({
             "model": self.config.model,

@@ -72,6 +72,8 @@ $env:DEEPSEEK_API_KEY="你的_key"
 
 ## 架构
 
+[![ReAgent 架构图](https://picui.ogmua.cn/s1/2026/09/01/6a96dd57db34c.webp)](https://picui.ogmua.cn/s1/2026/09/01/6a96dd57db34c.webp)
+
 ```text
 用户自然语言需求
   → Rust Agent Loop（通用 tool-calling，无业务知识）

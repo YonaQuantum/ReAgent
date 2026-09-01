@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 
 use crate::agent::{AgentLoop, AgentRunConfig, AgentRunOutput};
 use crate::capability::load_capabilities;
@@ -60,48 +61,97 @@ impl Runtime {
     }
 }
 
-/// Resolve a provider name into a model adapter. Provider-specific env vars are
-/// read here, once, so callers don't duplicate the branching.
-pub fn build_provider(name: &str) -> Result<Box<dyn ModelProvider + Send + Sync>> {
-    match name {
+/// User-facing model configuration (provider + credentials) as entered in the
+/// WebUI settings. Non-secret fields are persisted to a plain config file; the
+/// `api_key` is held in the OS keychain and never serialized back out.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ModelSettings {
+    /// `deepseek`, `openai-compatible`, or `heuristic`.
+    pub provider: String,
+    #[serde(default, skip_serializing)]
+    pub api_key: Option<String>,
+    pub base_url: Option<String>,
+    pub model: Option<String>,
+    pub api_key_env: Option<String>,
+}
+
+/// Resolve a provider from explicit user settings, falling back to environment
+/// variables for any field the settings leave empty. This is the path the server
+/// uses once the user has configured a model in the WebUI.
+pub fn build_provider_from_settings(
+    settings: &ModelSettings,
+) -> Result<Box<dyn ModelProvider + Send + Sync>> {
+    match settings.provider.as_str() {
+        "heuristic" => Ok(Box::new(HeuristicPlanner)),
         "deepseek" => {
-            if std::env::var("DEEPSEEK_API_KEY").is_err() {
-                return Err(anyhow!(
-                    "DEEPSEEK_API_KEY is not set. Use --provider heuristic for offline demo."
-                ));
-            }
+            let api_key = settings
+                .api_key
+                .clone()
+                .or_else(|| std::env::var("DEEPSEEK_API_KEY").ok())
+                .ok_or_else(|| {
+                    anyhow!(
+                        "DEEPSEEK_API_KEY is not set. Use --provider heuristic for offline demo."
+                    )
+                })?;
             let mut config = ProviderConfig::deepseek();
-            // `DEEPSEEK_MODEL` overrides the default, so a vision-capable
-            // variant (e.g. deepseek-v4-flash-vision-exp) is a drop-in switch.
-            let model = std::env::var("DEEPSEEK_MODEL").unwrap_or_else(|_| config.model.clone());
-            config.model = model.clone();
+            if let Some(model) = &settings.model {
+                config.model = model.clone();
+            } else if let Ok(model) = std::env::var("DEEPSEEK_MODEL") {
+                config.model = model;
+            }
+            config.api_key = Some(api_key);
             // A model whose name advertises vision gets previews fed back as
             // images; `REAGENT_SUPPORTS_VISION` remains an explicit override for
             // names that don't say so.
-            config.supports_vision = vision_enabled() || model.to_lowercase().contains("vision");
+            config.supports_vision =
+                vision_enabled() || config.model.to_lowercase().contains("vision");
             Ok(Box::new(OpenAiCompatibleChatProvider::new(config)))
         }
         "openai-compatible" => {
-            let base_url = std::env::var("REAGENT_MODEL_BASE_URL")
-                .map_err(|_| anyhow!("REAGENT_MODEL_BASE_URL is required for openai-compatible"))?;
-            let api_key_env = std::env::var("REAGENT_MODEL_API_KEY_ENV")
-                .unwrap_or_else(|_| "OPENAI_API_KEY".to_string());
-            let model =
-                std::env::var("REAGENT_MODEL").map_err(|_| anyhow!("REAGENT_MODEL is required"))?;
+            let base_url = settings
+                .base_url
+                .clone()
+                .or_else(|| std::env::var("REAGENT_MODEL_BASE_URL").ok())
+                .ok_or_else(|| {
+                    anyhow!("REAGENT_MODEL_BASE_URL is required for openai-compatible")
+                })?;
+            let api_key_env = settings
+                .api_key_env
+                .clone()
+                .unwrap_or_else(|| "OPENAI_API_KEY".to_string());
+            let model = settings
+                .model
+                .clone()
+                .or_else(|| std::env::var("REAGENT_MODEL").ok())
+                .ok_or_else(|| anyhow!("REAGENT_MODEL is required"))?;
+            let api_key = settings
+                .api_key
+                .clone()
+                .or_else(|| std::env::var(&api_key_env).ok());
             let mut config = ProviderConfig::openai_compatible(
                 "openai-compatible",
                 base_url,
                 api_key_env,
                 model,
             );
+            config.api_key = api_key;
             config.supports_vision = vision_enabled();
             Ok(Box::new(OpenAiCompatibleChatProvider::new(config)))
         }
-        "heuristic" => Ok(Box::new(HeuristicPlanner)),
         other => Err(anyhow!(
             "unknown provider {other}; use deepseek, openai-compatible, or heuristic"
         )),
     }
+}
+
+/// Resolve a provider name into a model adapter using environment variables
+/// only. Provider-specific env vars are read here, once, so callers don't
+/// duplicate the branching.
+pub fn build_provider(name: &str) -> Result<Box<dyn ModelProvider + Send + Sync>> {
+    build_provider_from_settings(&ModelSettings {
+        provider: name.to_string(),
+        ..Default::default()
+    })
 }
 
 /// A generic system prompt that describes the workspace workflow, without

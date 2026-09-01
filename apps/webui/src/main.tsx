@@ -13,6 +13,15 @@ type InspectorTab = "activity" | "preview";
 type RunStatus = "idle" | "running" | "done" | "error" | "cancelled";
 type ConnectionStatus = "checking" | "connected" | "disconnected";
 
+type SettingsResponse = {
+  provider: Provider;
+  base_url: string | null;
+  model: string | null;
+  api_key_env: string | null;
+  api_key_set: boolean;
+  api_key_hint: string | null;
+};
+
 type Artifact = {
   kind: string;
   path: string;
@@ -98,6 +107,13 @@ function App() {
   });
   const [prompt, setPrompt] = useState("");
   const [provider, setProvider] = useState<Provider>("deepseek");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [modelName, setModelName] = useState("");
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiKeySet, setApiKeySet] = useState(false);
+  const [apiKeyHint, setApiKeyHint] = useState<string | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [runStatuses, setRunStatuses] = useState<Record<string, RunStatus>>({});
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("checking");
   const [agentName, setAgentName] = useState("ReAgent");
@@ -157,6 +173,27 @@ function App() {
   useEffect(() => {
     document.title = `${agentName} 工作区`;
   }, [agentName]);
+
+  // Load the saved model config once, so the settings modal and header dropdown
+  // reflect what the server already knows (key is only ever shown masked).
+  useEffect(() => {
+    let disposed = false;
+    async function loadSettings() {
+      try {
+        const response = await fetch(`${apiBase}/api/settings`);
+        if (!response.ok) return;
+        const body = await response.json() as SettingsResponse;
+        if (disposed) return;
+        if (body.provider) setProvider(body.provider);
+        setBaseUrl(body.base_url ?? "");
+        setModelName(body.model ?? "");
+        setApiKeySet(body.api_key_set ?? false);
+        setApiKeyHint(body.api_key_hint ?? null);
+      } catch { /* backend may not expose settings yet; keep defaults */ }
+    }
+    void loadSettings();
+    return () => { disposed = true; };
+  }, [apiBase]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
@@ -279,6 +316,60 @@ function App() {
 
   function removeAttachment(path: string) {
     setAttachments((current) => current.filter((item) => item.path !== path));
+  }
+
+  async function putSettings(nextProvider: Provider, opts: { clearKey?: boolean; includeKey?: boolean } = {}) {
+    const body: Record<string, unknown> = {
+      provider: nextProvider,
+      base_url: baseUrl.trim() || null,
+      model: modelName.trim() || null,
+    };
+    if (opts.clearKey) body.clear_api_key = true;
+    else if (opts.includeKey && apiKeyInput) body.api_key = apiKeyInput;
+    const response = await fetch(`${apiBase}/api/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const saved = await response.json() as SettingsResponse;
+    setApiKeySet(saved.api_key_set ?? false);
+    setApiKeyHint(saved.api_key_hint ?? null);
+    return saved;
+  }
+
+  // Provider changes persist immediately (they don't carry a key, so the stored
+  // key is carried forward server-side); the text fields are saved explicitly.
+  function changeProvider(next: Provider) {
+    setProvider(next);
+    void putSettings(next).catch((error) => console.error("保存模型配置失败", error));
+  }
+
+  async function saveSettings() {
+    setSavingSettings(true);
+    setSettingsError(null);
+    try {
+      await putSettings(provider, { includeKey: true });
+      setApiKeyInput("");
+      setSettingsOpen(false);
+    } catch (error) {
+      setSettingsError(readableError(error));
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function clearApiKey() {
+    setSavingSettings(true);
+    setSettingsError(null);
+    try {
+      await putSettings(provider, { clearKey: true });
+      setApiKeyInput("");
+    } catch (error) {
+      setSettingsError(readableError(error));
+    } finally {
+      setSavingSettings(false);
+    }
   }
 
   async function submit(event?: FormEvent) {
@@ -476,7 +567,7 @@ function App() {
             <div><h1>{active.title}</h1><span>通用执行 Agent</span></div>
           </div>
           <div className="headerActions">
-            <label className="modelSelect"><Bot size={15} /><select value={provider} onChange={(event) => setProvider(event.target.value as Provider)} disabled={status === "running"}><option value="deepseek">DeepSeek</option><option value="openai-compatible">OpenAI Compatible</option><option value="heuristic">本地模式</option></select><ChevronDown size={14} /></label>
+            <label className="modelSelect"><Bot size={15} /><select value={provider} onChange={(event) => changeProvider(event.target.value as Provider)} disabled={status === "running"}><option value="deepseek">DeepSeek</option><option value="openai-compatible">OpenAI Compatible</option><option value="heuristic">本地模式</option></select><ChevronDown size={14} /></label>
             <RunBadge status={status} runningCount={runningCount} />
             {!inspectorOpen && <button className="iconButton inspectorTrigger" onClick={() => setInspectorOpen(true)} aria-label="打开检查器"><Activity size={18} /></button>}
           </div>
@@ -542,7 +633,12 @@ function App() {
       {settingsOpen && <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="设置">
         <section className="settingsModal">
           <header><div><h2>设置</h2><p>工作区与模型连接</p></div><button className="iconButton" onClick={() => setSettingsOpen(false)} aria-label="关闭设置"><X size={18} /></button></header>
-          <label><span>默认模型</span><select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}><option value="deepseek">DeepSeek</option><option value="openai-compatible">OpenAI Compatible</option><option value="heuristic">本地模式</option></select></label>
+          <label><span>默认模型</span><select value={provider} onChange={(event) => changeProvider(event.target.value as Provider)}><option value="deepseek">DeepSeek</option><option value="openai-compatible">OpenAI Compatible</option><option value="heuristic">本地模式</option></select></label>
+          <label><span>API Key</span>{apiKeySet && <button type="button" className="clearKeyButton" onClick={() => void clearApiKey()} disabled={savingSettings}>清除已保存</button>}<input type="password" value={apiKeyInput} onChange={(event) => setApiKeyInput(event.target.value)} placeholder={apiKeySet ? (apiKeyHint ? `已保存（${apiKeyHint}），留空则不修改` : "已保存，留空则不修改") : "粘贴你的 API Key"} autoComplete="off" spellCheck={false} /></label>
+          {provider === "openai-compatible" && <label><span>接口地址</span><input type="text" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.example.com" autoComplete="off" spellCheck={false} /></label>}
+          <label><span>模型名称</span><input type="text" value={modelName} onChange={(event) => setModelName(event.target.value)} placeholder={provider === "deepseek" ? "deepseek-v4-flash" : "模型 ID（留空用默认）"} autoComplete="off" spellCheck={false} /></label>
+          {settingsError && <p className="settingsError">{settingsError}</p>}
+          <div className="settingsActions"><button className="primaryButton" onClick={() => void saveSettings()} disabled={savingSettings}>{savingSettings ? "保存中…" : "保存"}</button></div>
           <div className="connectionRow"><span>Kernel API</span><code>{apiBase}</code><ConnectionBadge status={connectionStatus} /></div>
         </section>
       </div>}

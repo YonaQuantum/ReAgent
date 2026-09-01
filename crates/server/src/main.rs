@@ -1,3 +1,5 @@
+mod settings;
+
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -10,21 +12,27 @@ use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use reagent_core::{
-    agent_name, build_provider, AgentRunConfig, AgentRunOutput, Event, EventKind, Runtime,
+    agent_name, build_provider, build_provider_from_settings, AgentRunConfig, AgentRunOutput,
+    Event, EventKind, ModelSettings, Runtime,
 };
 use serde::Deserialize;
 use serde_json::json;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 use uuid::Uuid;
 
+use crate::settings::{describe, load_settings, save_settings, SettingsResponse, SettingsUpdate};
+
 #[derive(Debug, Clone)]
 struct AppState {
     artifact_dir: PathBuf,
     runtime: Arc<Runtime>,
+    /// Saved WebUI model config. `None` means nothing configured yet, so the
+    /// server falls back to environment variables.
+    settings: Arc<RwLock<Option<ModelSettings>>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,13 +66,20 @@ async fn main() -> Result<()> {
 
     let runtime = Arc::new(Runtime::load(capabilities_dir)?);
 
+    let settings = Arc::new(RwLock::new(load_settings().unwrap_or_else(|err| {
+        eprintln!("warning: failed to load settings ({err}); starting unconfigured");
+        None
+    })));
+
     let state = Arc::new(AppState {
         artifact_dir: artifact_dir.clone(),
         runtime,
+        settings,
     });
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/api/settings", get(get_settings).put(update_settings))
         .route("/api/runs", post(stream_run))
         .route("/api/upload", post(upload_file))
         .nest_service("/artifacts", ServeDir::new(artifact_dir))
@@ -90,6 +105,43 @@ async fn main() -> Result<()> {
 
 async fn health() -> Json<serde_json::Value> {
     Json(json!({"ok": true, "name": agent_name()}))
+}
+
+/// Current model config, with the API key masked (never returned in full).
+async fn get_settings(State(state): State<Arc<AppState>>) -> Json<SettingsResponse> {
+    let guard = state.settings.read().await;
+    Json(match &*guard {
+        Some(settings) => describe(settings),
+        None => describe(&ModelSettings::default()),
+    })
+}
+
+/// Save model config: non-secret fields to a config file, the API key to the OS
+/// keychain. When the request omits a key and doesn't ask to clear it, the
+/// existing stored key is carried forward.
+async fn update_settings(
+    State(state): State<Arc<AppState>>,
+    Json(mut update): Json<SettingsUpdate>,
+) -> Result<Json<SettingsResponse>, (StatusCode, String)> {
+    if update.settings.provider.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "provider is required".to_string()));
+    }
+    if update.settings.api_key.is_none() && !update.clear_api_key {
+        let guard = state.settings.read().await;
+        if let Some(current) = &*guard {
+            update.settings.api_key = current.api_key.clone();
+        }
+    }
+
+    save_settings(&update.settings, update.clear_api_key)
+        .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+
+    if update.clear_api_key {
+        update.settings.api_key = None;
+    }
+    *state.settings.write().await = Some(update.settings.clone());
+
+    Ok(Json(describe(&update.settings)))
 }
 
 /// Accept a single multipart file, store it under `artifacts/uploads/<uuid>/`,
@@ -160,6 +212,14 @@ async fn stream_run(
 ) -> Sse<impl tokio_stream::Stream<Item = Result<SseEvent, Infallible>>> {
     let provider_name = request.provider.unwrap_or_else(|| "deepseek".to_string());
 
+    // Use saved WebUI settings when present; otherwise fall back to the env-var
+    // path keyed by the request's provider name.
+    let settings = state.settings.read().await.clone();
+    let provider_result = match &settings {
+        Some(s) => build_provider_from_settings(s),
+        None => build_provider(&provider_name),
+    };
+
     let (event_tx, mut event_rx) = mpsc::unbounded_channel::<Event>();
     let (msg_tx, msg_rx) = mpsc::unbounded_channel::<StreamMsg>();
 
@@ -177,7 +237,6 @@ async fn stream_run(
     let runtime = state.runtime.clone();
     let artifact_dir = state.artifact_dir.clone();
     let input_files = resolve_input_files(&artifact_dir, &request.files);
-    let provider_result = build_provider(&provider_name);
     let done = msg_tx.clone();
     tokio::spawn(async move {
         let provider = match provider_result {
